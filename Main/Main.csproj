@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>netcoreapp2.2</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <MonoGameContentReference Include="**\*.mgcb" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="MonoGame.Content.Builder" Version="3.7.0.9" />
+        <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.7.1.189" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\GameLogic\GameLogic.csproj" />
+    </ItemGroup>
+
+</Project>
