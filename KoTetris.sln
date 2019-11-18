@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Main", "Main\Main.csproj", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameLogic", "GameLogic\GameLogic.csproj", "{185F7762-8295-4BDA-9F89-40E7FB3F1049}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContentRuntimeLoader", "ContentRuntimeLoader\ContentRuntimeLoader.csproj", "{347D9D3C-2C3C-4FC1-91C5-936463873321}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{185F7762-8295-4BDA-9F89-40E7FB3F1049}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{185F7762-8295-4BDA-9F89-40E7FB3F1049}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{185F7762-8295-4BDA-9F89-40E7FB3F1049}.Release|Any CPU.Build.0 = Release|Any CPU
+		{347D9D3C-2C3C-4FC1-91C5-936463873321}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{347D9D3C-2C3C-4FC1-91C5-936463873321}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{347D9D3C-2C3C-4FC1-91C5-936463873321}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{347D9D3C-2C3C-4FC1-91C5-936463873321}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

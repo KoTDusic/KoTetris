@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using ContentRuntimeLoader;
+using GameLogic.Figures;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
@@ -13,6 +16,8 @@ namespace GameLogic
 {
     public class GameController
     {
+        private const long TicksInMs = 10000;
+        private const long InputMaxSpeed = 60;
         private const int GameFieldWidth = 10;
         private const int GameFieldHeight = 20;
         private readonly Action _exitAction;
@@ -21,6 +26,7 @@ namespace GameLogic
         private readonly Button _restartButton;
         private readonly TextBlock _resultTextBlock;
         private readonly BlockType[,] _gameField = new BlockType[GameFieldHeight, GameFieldWidth];
+        private long _oldButtonPressedGameTime = 0;
         private int msTimeout = 80;
         private int _lines;
         private CancellationTokenSource _cts = new CancellationTokenSource();
@@ -28,26 +34,32 @@ namespace GameLogic
         private Texture2D _blockTexture;
         private Effect _effect;
         private Song _tetrisThemeSong;
-        
+        private bool _delayComplited;
+
         private bool LeftPressed { get; set; }
         private bool RightPressed { get; set; }
         private bool BottomPressed { get; set; }
         private bool UpPressed { get; set; }
+
         public GameController(Action exitAction)
         {
             _exitAction = exitAction;
-            _startGameButton = new Button( "Start Game");
-            _restartButton = new Button( "Restart");
-            _exitButton = new Button( "Exit");
+            _startGameButton = new Button("Start Game");
+            _restartButton = new Button("Restart");
+            _exitButton = new Button("Exit");
             _resultTextBlock = new TextBlock();
             MediaPlayer.IsRepeating = true;
         }
 
-        public void Initialize(ContentManager content)
+        public void Initialize(ContentManager content, GraphicsDevice graphicsDevice)
         {
-            _blockTexture = content.Load<Texture2D>("block");
-            _tetrisThemeSong = content.Load<Song>("TetrisTheme");
-            _effect = content.Load<Effect>("Shader");
+            using (var stream = File.Open(ContentRuntime.BlockTexture, FileMode.Open))
+            {
+                _blockTexture = Texture2D.FromStream(graphicsDevice, stream);
+            }
+
+            _tetrisThemeSong = Song.FromUri(null, new Uri(ContentRuntime.TetrisTheme));
+            //_effect = content.Load<Effect>("Shader");
             _startGameButton.Initialize(content);
             _restartButton.Initialize(content);
             _exitButton.Initialize(content);
@@ -62,7 +74,7 @@ namespace GameLogic
                 {
                     _startGameButton.Update(mouse);
                     _exitButton.Update(mouse);
-                    if (_startGameButton.Pressed)
+                    if (_startGameButton.Pressed || keyboard.IsKeyDown(Keys.Enter))
                     {
                         StartGame();
                     }
@@ -86,9 +98,49 @@ namespace GameLogic
                 case GameState.Game:
                 {
                     LeftPressed = keyboard.IsKeyDown(Keys.Left) || keyboard.IsKeyDown(Keys.A);
-                    RightPressed = keyboard.IsKeyDown(Keys.Right)|| keyboard.IsKeyDown(Keys.D);
+                    RightPressed = keyboard.IsKeyDown(Keys.Right) || keyboard.IsKeyDown(Keys.D);
                     BottomPressed = keyboard.IsKeyDown(Keys.Down) || keyboard.IsKeyDown(Keys.S);
                     UpPressed = keyboard.IsKeyDown(Keys.Up) || keyboard.IsKeyDown(Keys.W);
+                    
+                    if(UpPressed)
+                    {
+                        if (InvalidatePressSpeed(gameTime)) TryRotate();
+                    }
+                    
+                    if (LeftPressed)
+                    {
+                        if (InvalidatePressSpeed(gameTime)) TryMoveLeft();
+                    }
+
+                    if (RightPressed)
+                    {
+                        if (InvalidatePressSpeed(gameTime)) TryMoveRight();
+                    }
+                    
+                    if (BottomPressed)
+                    {
+                        if (InvalidatePressSpeed(gameTime))
+                        {
+                            TryMoveDown();
+                            _delayComplited = false;
+                        }
+                    }
+                    
+                    if (!_delayComplited)
+                    {
+                        break;
+                    }
+                    
+                    if (HasFallingFigure)
+                    {
+                        ProcessMoving();
+                    }
+                    else
+                    {
+                        GenerateFigure();
+                    }
+
+                    _delayComplited = false;
                     break;
                 }
                 case GameState.GameOver:
@@ -108,6 +160,11 @@ namespace GameLogic
                     break;
                 }
             }
+        }
+
+        private void TryRotate()
+        {
+            //Not implemented
         }
 
         private void ExitGame()
@@ -139,60 +196,54 @@ namespace GameLogic
             while (!ctsToken.IsCancellationRequested)
             {
                 await Task.Delay(msTimeout, ctsToken).ConfigureAwait(false);
-                if (HasFallingFigure)
-                {
-                    ProcessMoving();
-                }
-                else
-                {
-                    GenerateFigure();
-                }
+                _delayComplited = true;
             }
-
         }
 
         private void GenerateFigure()
         {
-            var figure = new List<Point>();
-            switch (RandomHelper.Next(0,4))
+            IFigure figure = null;
+            switch (RandomHelper.Next(0, 6))
             {
                 //квадрат
                 case 0:
                 {
-                    figure.Add(new Point(0,0));
-                    figure.Add(new Point(0,1));
-                    figure.Add(new Point(1,0));
-                    figure.Add(new Point(1,1));
+                    figure = new FigureI();
                     break;
                 }
                 case 1:
                 {
-                    //уголок
-                    figure.Add(new Point(0,0));
-                    figure.Add(new Point(0,1));
-                    figure.Add(new Point(1,1));
+                    figure = new FigureJ();
                     break;
                 }
                 case 2:
                 {
-                    //уголок 2
-                    figure.Add(new Point(0,0));
-                    figure.Add(new Point(0,1));
-                    figure.Add(new Point(1,0));
+                    figure = new FigureL();
                     break;
                 }
                 case 3:
                 {
-                    //палка
-                    figure.Add(new Point(0,0));
-                    figure.Add(new Point(0,1));
-                    figure.Add(new Point(0,2));
-                    figure.Add(new Point(0,3));
+                    figure = new FigureO();
+                    break;
+                }
+                case 4:
+                {
+                    figure = new FigureS();
+                    break;
+                }
+                case 5:
+                {
+                    figure = new FigureT();
+                    break;
+                }
+                case 6:
+                {
+                    figure = new FigureZ();
                     break;
                 }
             }
-
-            foreach (var pixel in figure)
+            
+            foreach (var pixel in figure.GetGeometry())
             {
                 if (_gameField[pixel.X, pixel.Y] != BlockType.Air)
                 {
@@ -201,29 +252,25 @@ namespace GameLogic
 
                 _gameField[pixel.X, pixel.Y] = BlockType.FallingBlock;
             }
-            
         }
 
         private void ProcessMoving()
         {
-            if (LeftPressed)
-            {
-                TryMoveLeft();
-            }
-            if (RightPressed)
-            {
-                TryMoveRight();
-            }
-
             if (!TryMoveDown())
             {
                 FreezeFallingBlock();
-                var lines = TryFinishLines();
-                if (lines != 0)
+                int lines;
+                do
                 {
+                    lines = TryFinishLines();
+                    if (lines == 0)
+                    {
+                        continue;
+                    }
+
                     _lines += lines;
                     DisplayScore(_lines);
-                }
+                } while (lines > 0);
             }
         }
 
@@ -245,7 +292,7 @@ namespace GameLogic
                         counter++;
                     }
 
-                    if (_gameField[i,j] == BlockType.Air)
+                    if (_gameField[i, j] == BlockType.Air)
                     {
                         counter = 0;
                         break;
@@ -260,7 +307,7 @@ namespace GameLogic
                     {
                         for (var k = i; k > 1; k--)
                         {
-                            _gameField[k, j] = _gameField[k-1, j];
+                            _gameField[k, j] = _gameField[k - 1, j];
                         }
 
                         _gameField[0, j] = BlockType.Air;
@@ -269,6 +316,19 @@ namespace GameLogic
             }
 
             return lines;
+        }
+
+        private bool InvalidatePressSpeed(GameTime gameTime)
+        {
+            var difference = gameTime.TotalGameTime.Ticks - _oldButtonPressedGameTime;
+            if (difference < InputMaxSpeed * TicksInMs)
+            {
+                return false;
+            }
+            
+            _oldButtonPressedGameTime = gameTime.TotalGameTime.Ticks;
+            return true;
+
         }
 
         private bool TryMoveRight()
@@ -282,25 +342,26 @@ namespace GameLogic
                     {
                         continue;
                     }
+
                     if (j + 1 >= GameFieldWidth)
                     {
                         return false;
                     }
-                    
-                    if (_gameField[i, j+1] == BlockType.Block)
+
+                    if (_gameField[i, j + 1] == BlockType.Block)
                     {
                         return false;
                     }
 
-                    list.Add(new Point(i,j));
+                    list.Add(new Point(i, j));
                 }
             }
-            
+
             foreach (var point in list)
             {
                 _gameField[point.X, point.Y] = BlockType.Air;
             }
-            
+
             foreach (var point in list)
             {
                 _gameField[point.X, point.Y + 1] = BlockType.FallingBlock;
@@ -325,21 +386,21 @@ namespace GameLogic
                     {
                         return false;
                     }
-                    
-                    if (_gameField[i, j-1] == BlockType.Block)
+
+                    if (_gameField[i, j - 1] == BlockType.Block)
                     {
                         return false;
                     }
 
-                    list.Add(new Point(i,j));
+                    list.Add(new Point(i, j));
                 }
             }
-            
+
             foreach (var point in list)
             {
                 _gameField[point.X, point.Y] = BlockType.Air;
             }
-            
+
             foreach (var point in list)
             {
                 _gameField[point.X, point.Y - 1] = BlockType.FallingBlock;
@@ -347,6 +408,7 @@ namespace GameLogic
 
             return true;
         }
+
         private bool TryMoveDown()
         {
             var list = new List<Point>();
@@ -359,17 +421,17 @@ namespace GameLogic
                         continue;
                     }
 
-                    if (i+1 >= GameFieldHeight)
-                    {
-                        return false;
-                    }
-                    
-                    if (_gameField[i+1, j] == BlockType.Block)
+                    if (i + 1 >= GameFieldHeight)
                     {
                         return false;
                     }
 
-                    list.Add(new Point(i,j));
+                    if (_gameField[i + 1, j] == BlockType.Block)
+                    {
+                        return false;
+                    }
+
+                    list.Add(new Point(i, j));
                 }
             }
 
@@ -377,10 +439,10 @@ namespace GameLogic
             {
                 _gameField[point.X, point.Y] = BlockType.Air;
             }
-            
+
             foreach (var point in list)
             {
-                _gameField[point.X+1, point.Y] = BlockType.FallingBlock;
+                _gameField[point.X + 1, point.Y] = BlockType.FallingBlock;
             }
 
             return true;
@@ -396,7 +458,7 @@ namespace GameLogic
                 }
             }
         }
-        
+
         private void FreezeFallingBlock()
         {
             for (var i = 0; i < GameFieldHeight; i++)
@@ -411,8 +473,9 @@ namespace GameLogic
             }
         }
 
- 
-        private bool HasFallingFigure => _gameField.OfType<BlockType>().Any(blockType => blockType == BlockType.FallingBlock);
+
+        private bool HasFallingFigure =>
+            _gameField.OfType<BlockType>().Any(blockType => blockType == BlockType.FallingBlock);
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch, Rectangle viewportBounds)
         {
@@ -458,10 +521,10 @@ namespace GameLogic
                                 {
                                     var blockRectangle = new Rectangle(
                                         gamePart.X + j * tileSize,
-                                        gamePart.Y + i * tileSize, 
+                                        gamePart.Y + i * tileSize,
                                         tileSize,
                                         tileSize);
-                                    _effect.CurrentTechnique.Passes[0].Apply();
+                                     //_effect.CurrentTechnique.Passes[0].Apply();
                                     spriteBatch.Draw(_blockTexture, blockRectangle, Color.White);
                                     break;
                                 }
@@ -469,9 +532,9 @@ namespace GameLogic
                         }
                     }
 
-                        spriteBatch.End();
-                        spriteBatch.Begin();
-                        _resultTextBlock.Draw(spriteBatch, scorePart);
+                    spriteBatch.End();
+                    spriteBatch.Begin();
+                    _resultTextBlock.Draw(spriteBatch, scorePart);
 
                     break;
                 }

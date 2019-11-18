@@ -1,4 +1,5 @@
-﻿using GameLogic;
+﻿using System.Reflection;
+using GameLogic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -34,7 +35,7 @@ namespace Main
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             EmptyTexture.SetGraphic(GraphicsDevice);
             _gameController = new GameController(Exit);
-            _gameController.Initialize(Content);
+            _gameController.Initialize(Content, GraphicsDevice);
         }
 
         protected override void Update(GameTime gameTime)

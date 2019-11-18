@@ -15,6 +15,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\ContentRuntimeLoader\ContentRuntimeLoader.csproj" />
       <ProjectReference Include="..\GameLogic\GameLogic.csproj" />
     </ItemGroup>
 
